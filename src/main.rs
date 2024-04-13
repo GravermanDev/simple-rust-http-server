@@ -7,7 +7,7 @@ fn send_path_in_body(mut stream: TcpStream, http_request: Vec<String>) {
         let parts: Vec<&str> = request_line.split_whitespace().collect();
         if parts.len() >= 3 && parts[0] == "GET" {
             let path = parts[1];
-            let path_parts: Vec<&str> = path.split("/").collect();
+            let path_parts: Vec<&str> = path.splitn(2, "/").collect();
             if path_parts.len() == 2 && parts[0] == "echo" {
                 let c = parts[1];
                 let c_len = c.len();
