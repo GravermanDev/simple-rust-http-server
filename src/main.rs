@@ -12,10 +12,20 @@ fn send_path_in_body(mut stream: TcpStream, http_request: Vec<String>) {
                 let c = parts[1];
                 let c_len = c.len();
                 stream.write_all(format!("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Lenght: {c_len}\r\n\r\n{c}\r\n\r\n").as_bytes()).unwrap();
+            } else if parts[1] == "/"{
+                send_ok(stream); // default path
+            } else {
+                send_not_found(stream); // invalid path
             }
-            send_not_found(stream);
+        } else {
+            send_not_found(stream); // no path
         }
     }
+}
+
+fn send_ok(mut stream: TcpStream) {
+    stream.write_all("HTTP/1.1 200 OK\r\n\r\n".as_bytes()).unwrap();
+    println!("Send a Not Found response")
 }
 
 fn send_not_found(mut stream: TcpStream) {
