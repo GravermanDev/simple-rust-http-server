@@ -8,11 +8,11 @@ use std::fs;
 
 fn get_directory() -> String {
     let args: Vec<String> = env::args().collect();
-    if args.len() < 4 {
+    if args.len() < 3 {
         return "".into();
     }
 
-    let directory = &args[3];
+    let directory = &args[2];
     return directory.into();
 }
 
