@@ -3,6 +3,18 @@ use std::net::{TcpStream, TcpListener};
 use std::io::{Write, Read};
 use anyhow::Error;
 use std::thread;
+use std::env;
+use std::fs;
+
+fn get_directory() -> String {
+    let args: Vec<String> = env::args().collect();
+    if args.len() < 4 {
+        return "".into();
+    }
+
+    let directory = &args[3];
+    return directory.into();
+}
 
 fn send_ok(stream: &mut TcpStream) {
     stream.write_all("HTTP/1.1 200 OK\r\n\r\n".as_bytes()).unwrap();
@@ -40,6 +52,21 @@ fn handle_user_agent(stream: &mut TcpStream, http_request: Vec<String>) {
         let response = format!("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: {len}\r\n\r\n{user_agent}\r\n\r\n");
         stream.write_all(response.as_bytes()).unwrap();
         println!("Sent User-Agent");
+        return;
+    }
+    send_not_found(stream);
+}
+
+fn handle_files(stream: &mut TcpStream, path: &str) {
+    let dir = get_directory();
+    let file_path = &format!("{}/{}", dir, path);
+    println!("Reading: {file_path}");
+
+    if let Ok(c) = fs::read_to_string(file_path) {
+        let len = c.len();
+        let response = format!("HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: {len}\r\n\r\n{c}\r\n\r\n");
+        stream.write_all(response.as_bytes()).unwrap();
+        return;
     }
     send_not_found(stream);
 }
@@ -68,6 +95,7 @@ fn handle_connection(stream: &mut TcpStream) -> Result<(), Error> {
             match path_parts[1] {
                 "echo" => handle_echo(stream, path_parts[2]),
                 "user-agent" => handle_user_agent(stream, http_request),
+                "files" => handle_files(stream, path_parts[2]),
                 _ => send_not_found(stream),
             }
             return Ok(());
