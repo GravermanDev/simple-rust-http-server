@@ -1,7 +1,6 @@
 use std::collections::hash_map::HashMap;
 use std::net::{TcpStream, TcpListener};
 use std::io::{Write, Read};
-use std::fs::OpenOptions;
 use anyhow::Error;
 use std::thread;
 use std::env;
@@ -72,40 +71,16 @@ fn handle_files(stream: &mut TcpStream, path: &str) {
     send_not_found(stream);
 }
 
-fn handle_post_files(stream: &mut TcpStream, path: &str, http_request: &Vec<String>) -> Result<(), Error> {
+fn handle_post_files(stream: &mut TcpStream, path: &str, http_request: &Vec<String>) {
     let dir = get_directory();
     let file_path = &format!("{}/{}", dir, path);
+    println!("Posting: {file_path}");
 
-    println!("request {:?}", http_request);
+    let mut f = fs::File::create_new(file_path).expect("");
+    let _ = f.write_all("Hello".as_bytes());
 
-    let mut f = OpenOptions::new()
-        .write(true)
-        .create(true)
-        .open(&file_path)?;
-
-    let mut content = String::new();
-    let mut in_body = false;
-    for line in http_request {
-        if in_body {
-            content.push_str(line.as_str());
-        }
-        if line == "" {
-            in_body = true;
-        }
-    }
-
-    println!("{}", content);
-    match f.write_all(content.as_bytes()) {
-        Ok(_) => {
-            println!("Sent a Created response");
-            stream.write_all("HTTP/1.1 201 Created\r\n\r\n".as_bytes()).unwrap();
-        }
-        Err(e) => {
-            println!("Error: {}", e);
-            return Err(e.into());
-        }
-    }
-    Ok(())
+    stream.write_all("HTTP/1.1 201 Created\r\n\r\n".as_bytes()).unwrap();
+    println!("Sent a Created response")
 }
 
 fn handle_connection(stream: &mut TcpStream) -> Result<(), Error> {
@@ -115,6 +90,7 @@ fn handle_connection(stream: &mut TcpStream) -> Result<(), Error> {
     let http_request: Vec<String> = request_string
         .lines()
         .map(|result| result.to_string())
+        .take_while(|line| !line.is_empty())
         .collect();
 
     if let Some(request_line) = http_request.get(0) {
@@ -135,14 +111,14 @@ fn handle_connection(stream: &mut TcpStream) -> Result<(), Error> {
                 _ => send_not_found(stream),
             }
             return Ok(());
-        } else if parts.len() >= 3 && parts[0] == "POST" {
+        } else if parts.len() >= 3 && parts[1] == "POST" {
             let path = parts[1];
             let path_parts: Vec<&str> = path.splitn(3, "/").collect();
 
-            let _ = match path_parts[1] {
+            match path_parts[1] {
                 "files" => handle_post_files(stream, path_parts[2], &http_request),
-                _ => Ok(send_not_found(stream)),
-            };
+                _ => send_not_found(stream),
+            }
             return Ok(());
         }
     }
