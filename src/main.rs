@@ -1,19 +1,20 @@
-use std::net::{TcpStream, TcpListener};
-use std::io::{BufRead, BufReader, Write};
 use std::collections::hash_map::HashMap;
+use std::net::{TcpStream, TcpListener};
+use std::io::{Write, Read};
+use anyhow::Error;
+use std::thread;
 
-
-fn send_ok(mut stream: TcpStream) {
+fn send_ok(stream: &mut TcpStream) {
     stream.write_all("HTTP/1.1 200 OK\r\n\r\n".as_bytes()).unwrap();
     println!("Sent a OK response")
 }
 
-fn send_not_found(mut stream: TcpStream) {
+fn send_not_found(stream: &mut TcpStream) {
     stream.write_all("HTTP/1.1 404 Not Found\r\n\r\n".as_bytes()).unwrap();
     println!("Sent a Not Found response")
 }
 
-fn handle_echo(mut stream: TcpStream, thing_to_echo: &str) {
+fn handle_echo(stream: &mut TcpStream, thing_to_echo: &str) {
     let len = thing_to_echo.len();
     let response = format!("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: {len}\r\n\r\n{thing_to_echo}\r\n\r\n");
     stream.write_all(response.as_bytes()).unwrap();
@@ -31,7 +32,7 @@ fn create_http_request_map(http_request: Vec<String>) -> HashMap<String, String>
     map
 }
 
-fn handle_user_agent(mut stream: TcpStream, http_request: Vec<String>) {
+fn handle_user_agent(stream: &mut TcpStream, http_request: Vec<String>) {
     let map = create_http_request_map(http_request);
 
     if let Some(user_agent) = map.get("User-Agent") {
@@ -43,11 +44,13 @@ fn handle_user_agent(mut stream: TcpStream, http_request: Vec<String>) {
     send_not_found(stream);
 }
 
-fn handle_connection(mut stream: TcpStream) {
-    let buf_reader = BufReader::new(&mut stream);
-    let http_request: Vec<String> = buf_reader
+fn handle_connection(stream: &mut TcpStream) -> Result<(), Error> {
+    let mut buffer = [0u8; 1024];
+    let bytes_read = stream.read(&mut buffer)?;
+    let request_string = String::from_utf8_lossy(&buffer[..bytes_read]);
+    let http_request: Vec<String> = request_string
         .lines()
-        .map(|result| result.unwrap())
+        .map(|result| result.to_string())
         .take_while(|line| !line.is_empty())
         .collect();
 
@@ -59,7 +62,7 @@ fn handle_connection(mut stream: TcpStream) {
 
             if path == "/" {
                 send_ok(stream);
-                return;
+                return Ok(());
             }
 
             match path_parts[1] {
@@ -67,12 +70,12 @@ fn handle_connection(mut stream: TcpStream) {
                 "user-agent" => handle_user_agent(stream, http_request),
                 _ => send_not_found(stream),
             }
-
-            return;
+            return Ok(());
         }
     }
 
     send_not_found(stream);
+    Ok(())
 }
 
 fn main() {
@@ -81,7 +84,17 @@ fn main() {
     let listener = TcpListener::bind("127.0.0.1:4221").unwrap();
 
     for stream in listener.incoming() {
-        let stream = stream.unwrap();
-        handle_connection(stream);
+        match stream {
+            Ok(mut stream) => {
+                thread::spawn(move || match handle_connection(&mut stream) {
+                    Ok(_) => (),
+                    Err(error) => println!("Error handling connection: {}", error),
+                });
+            }
+            Err(e) => {
+                println!("Error: {}", e);
+            }
+        }
     }
+
 }
