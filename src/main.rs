@@ -1,18 +1,19 @@
 use std::net::{TcpStream, TcpListener};
 use std::io::{BufRead, BufReader, Write};
 
-fn send_ok(mut stream: TcpStream) {
-    stream.write_all("HTTP/1.1 200 OK\r\n\r\n".as_bytes()).unwrap();
-    println!("Sent an OK response");
-}
 
 fn send_path_in_body(mut stream: TcpStream, http_request: Vec<String>) {
     if let Some(request_line) = http_request.get(0) {
         let parts: Vec<&str> = request_line.split_whitespace().collect();
         if parts.len() >= 3 && parts[0] == "GET" {
             let path = parts[1];
-            let path_len = path.len();
-            stream.write_all(format!("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Lenght: {path_len}\r\n\r\n{path}\r\n\r\n").as_bytes()).unwrap();
+            let path_parts: Vec<&str> = path.split("/").collect();
+            if path_parts.len() == 2 && parts[0] == "echo" {
+                let c = parts[1];
+                let c_len = c.len();
+                stream.write_all(format!("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Lenght: {c_len}\r\n\r\n{c}\r\n\r\n").as_bytes()).unwrap();
+            }
+            send_not_found(stream);
         }
     }
 }
