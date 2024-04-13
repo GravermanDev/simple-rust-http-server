@@ -7,9 +7,13 @@ fn send_path_in_body(mut stream: TcpStream, http_request: Vec<String>) {
         let parts: Vec<&str> = request_line.split_whitespace().collect();
         if parts.len() >= 3 && parts[0] == "GET" {
             let path = parts[1];
-            let path_parts: Vec<&str> = path.splitn(2, "/").collect();
-            if path_parts.len() == 2 && parts[0] == "echo" {
-                let c = parts[1];
+            let path_parts: Vec<&str> = path.split("/").collect();
+            if path_parts.len() >= 2 && parts[1] == "echo" {
+                let c = path_parts
+                    .iter()
+                    .skip(2)
+                    .collect::<Vec<&str>>()
+                    .join("/");
                 let c_len = c.len();
                 stream.write_all(format!("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Lenght: {c_len}\r\n\r\n{c}\r\n\r\n").as_bytes()).unwrap();
             } else if parts[1] == "/"{
