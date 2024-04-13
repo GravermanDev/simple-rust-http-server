@@ -11,7 +11,9 @@ fn send_path_in_body(mut stream: TcpStream, http_request: Vec<String>) {
             if path_parts[1] == "echo" {
                 let c = path_parts[2];
                 let c_len = c.len();
-                stream.write_all(format!("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Lenght: {c_len}\r\n\r\n{c}\r\n\r\n").as_bytes()).unwrap();
+                let response = format!("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: {c_len}\r\n\r\n{c}\r\n\r\n");
+                stream.write_all(response.as_bytes()).unwrap();
+                println!("{}", response);
             } else if parts[1] == "/"{
                 send_ok(stream); // default path
             } else {
